@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Web3 学习日志</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    input, textarea, button {
+      display: block;
+      margin: 10px 0;
+      padding: 10px;
+      width: 300px;
+    }
+    .log-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 350px;
+    }
+    
+  </style>
+</head>
+<body>
+  <div class="log-box">
+    <h2>📘 Web3 学习日志</h2>
+    <!-- 新增连接钱包按钮 -->
+    <button id="connectButton" onclick="connectWallet()">🔗 连接钱包</button>
+    <input id="today" placeholder="输入今天的日期" disabled />
+    <textarea id="learned" placeholder="你今天学到了什么？" disabled></textarea>
+    <button onclick="setLog()" disabled>📤 提交日志</button>
+    <button onclick="getLog()" disabled>📖 查看日志</button>
+    <button onclick="getLogCount()" disabled>📖 获取总数量</button>
+    <div id="output"></div>
+  </div>
+
+  <script>
+    const contractAddress = "0x2f537ee0de35a34664ee9f8b185fdda4f04a7a6f";
+    const abi = [
+  "function addLog(string _date, string _content) public",
+  "function getLogCount() public view returns (uint)",
+  "function getLog(uint index) public view returns (string, string)"
+];
+
+
+
+    let userAccount;
+    function setTodayDate() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  document.getElementById("today").value = `${yyyy}-${mm}-${dd}`;
+}
+
+    async function connectWallet() {
+      if (!window.ethereum) {
+        alert("请先安装 MetaMask");
+        return;
+      }
+      await ethereum.request({ method: 'eth_requestAccounts' });
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      userAccount = await signer.getAddress();
+      alert("钱包已连接：" + userAccount);
+      setTodayDate();
+      // 启用输入框和按钮
+      document.getElementById("today").disabled = false;
+      document.getElementById("learned").disabled = false;
+      document.querySelectorAll("button").forEach(button => button.disabled = false);
+      document.getElementById("connectButton").disabled = true;
+  }
+
+    async function getContract() {
+      if (!userAccount) {
+        alert("请先连接钱包");
+        return;
+      }
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      return new ethers.Contract(contractAddress, abi, signer);
+    }
+
+    async function setLog() {
+      const today = document.getElementById("today").value;
+      const learned = document.getElementById("learned").value;
+      const contract = await getContract();
+      const tx = await contract.addLog(today, learned);
+      await tx.wait();
+      alert("🎉 日志已上传到区块链！");
+    }
+
+    async function getLog() {
+  const contract = await getContract();
+  const count = await contract.getLogCount();
+  if (count.toNumber() === 0) {
+    document.getElementById("output").innerHTML = "暂无日志";
+    return;
+  }
+
+  const index = count.toNumber() - 1; // 获取最新一条
+  const log = await contract.getLog(index);
+  const today = log[0];
+  const learned = log[1];
+  document.getElementById("output").innerHTML = `
+    <p>📅 <strong>${today}</strong></p>
+    <p>📚 ${learned}</p>
+  `;
+}
+
+async function getLogCount() {
+  const contract = await getContract();
+  const count = await contract.getLogCount();
+  document.getElementById("output").innerHTML = `📦 当前共有 <strong>${count.toNumber()}</strong> 条日志`;
+}
+  </script>
+</body>
+</html>
